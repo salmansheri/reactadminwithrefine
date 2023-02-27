@@ -11,15 +11,12 @@ import {
 } from "@pankod/refine-mui";
 
 import {
-  AccountCircleOutlined, 
-  ChatBubbleOutline, 
-  PeopleAltOutlined, 
-  
- 
-  StarOutlineRounded, 
- 
+  AccountCircleOutlined,
+  ChatBubbleOutline,
+  PeopleAltOutlined,
+  StarOutlineRounded,
   VillaOutlined,
-} from '@mui/icons-material'; 
+} from "@mui/icons-material";
 
 import dataProvider from "@pankod/refine-simple-rest";
 import { MuiInferencer } from "@pankod/refine-inferencer/mui";
@@ -27,7 +24,17 @@ import routerProvider from "@pankod/refine-react-router-v6";
 import axios, { AxiosRequestConfig } from "axios";
 import { ColorModeContextProvider } from "contexts";
 import { Title, Sider, Layout, Header } from "components/layout";
-import { Login, Home, Agent, MyProfile, PropertyDetails, AllProperties, CreateProperty, AgentProfile, EditProperty,   } from "./pages";
+import {
+  Login,
+  Home,
+  Agent,
+  MyProfile,
+  PropertyDetails,
+  AllProperties,
+  CreateProperty,
+  AgentProfile,
+  EditProperty,
+} from "./pages";
 import { CredentialResponse } from "interfaces/google";
 import { parseJwt } from "utils/parse-jwt";
 
@@ -47,17 +54,35 @@ axiosInstance.interceptors.request.use((request: AxiosRequestConfig) => {
 
 function App() {
   const authProvider: AuthProvider = {
-    login: ({ credential }: CredentialResponse) => {
+    login: async ({ credential }: CredentialResponse) => {
       const profileObj = credential ? parseJwt(credential) : null;
 
+      /* save users to mongodb */
       if (profileObj) {
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            ...profileObj,
+        const response = await fetch("http://localhost:5000/api/v1/user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: profileObj.name,
+            email: profileObj.email,
             avatar: profileObj.picture,
-          })
-        );
+          }),
+        });
+
+        const data = await response.json(); // actual data
+
+        if (response.status === 200) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify({
+              ...profileObj,
+              avatar: profileObj.picture,
+              userid: data._id,
+            })
+          );
+        } else {
+          return Promise.reject(); 
+        }
       }
 
       localStorage.setItem("token", `${credential}`);
@@ -103,41 +128,42 @@ function App() {
       <GlobalStyles styles={{ html: { WebkitFontSmoothing: "auto" } }} />
       <RefineSnackbarProvider>
         <Refine
-          dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
+          dataProvider={dataProvider("http://localhost:5000/api/v1")}
           notificationProvider={notificationProvider}
           ReadyPage={ReadyPage}
           catchAll={<ErrorComponent />}
           resources={[
             {
-              name: "Property",
-              list: MuiInferencer,
-              icon: <VillaOutlined />, 
-              
+              name: "properties",
+              list: AllProperties,
+              show: PropertyDetails,
+              create: CreateProperty,
+              edit: EditProperty,
+              icon: <VillaOutlined />,
             },
             {
-              name: "Agent",
-              list: MuiInferencer,
-              icon: <PeopleAltOutlined />, 
-              
+              name: "Agents",
+              list: Agent,
+              show: AgentProfile,
+
+              icon: <PeopleAltOutlined />,
             },
             {
-              name: "Review",
-              list: MuiInferencer,
+              name: "Reviews",
+              list: Home,
+
               icon: <StarOutlineRounded />,
-              
             },
             {
-              name: "Message",
-              list: MuiInferencer,
-              icon: <ChatBubbleOutline />, 
-              
+              name: "Messages",
+              list: Home,
+              icon: <ChatBubbleOutline />,
             },
             {
               name: "My-Profile",
-              options: {label:"My Profile"},
-              list: MuiInferencer,
-              icon: <AccountCircleOutlined />, 
-              
+              options: { label: "My Profile" },
+              list: MyProfile,
+              icon: <AccountCircleOutlined />,
             },
           ]}
           Title={Title}
